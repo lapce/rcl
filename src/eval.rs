@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 use std::collections::{BTreeMap, BTreeSet};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast::{BinOp, CallArg, Expr, FormatFragment, Seq, Stmt, UnOp, Yield};
 use crate::error::{Error, IntoError, Result};
@@ -312,7 +312,7 @@ impl<'a> Evaluator<'a> {
                     })?;
                 }
                 self.dec_eval_depth();
-                Ok(Value::List(Rc::new(out)))
+                Ok(Value::List(Arc::new(out)))
             }
 
             Expr::SetLit { open, elements } => {
@@ -324,7 +324,7 @@ impl<'a> Evaluator<'a> {
                     })?;
                 }
                 self.dec_eval_depth();
-                Ok(Value::Set(Rc::new(out)))
+                Ok(Value::Set(Arc::new(out)))
             }
 
             Expr::DictLit { open, elements } => {
@@ -339,7 +339,7 @@ impl<'a> Evaluator<'a> {
                     )?;
                 }
                 self.dec_eval_depth();
-                Ok(Value::Dict(Rc::new(out)))
+                Ok(Value::Dict(Arc::new(out)))
             }
 
             Expr::NullLit => Ok(Value::Null),
@@ -457,7 +457,7 @@ impl<'a> Evaluator<'a> {
                             method_span: *field_span,
                             method: b,
                         };
-                        Ok(Value::BuiltinMethod(Rc::new(instance)))
+                        Ok(Value::BuiltinMethod(Arc::new(instance)))
                     }
                     None => {
                         field_span
@@ -541,10 +541,10 @@ impl<'a> Evaluator<'a> {
                 let result = Function {
                     span: *span,
                     env: env.clone(),
-                    body: Rc::new((**body).clone()),
+                    body: Arc::new((**body).clone()),
                     type_: type_.clone(),
                 };
-                Ok(Value::Function(Rc::new(result)))
+                Ok(Value::Function(Arc::new(result)))
             }
 
             Expr::UnOp {
@@ -673,7 +673,7 @@ impl<'a> Evaluator<'a> {
     /// While joining values for string formatting, push one fragment.
     ///
     /// This powers both format strings as well as `List.join`.
-    pub fn push_format_fragment(out: &mut Vec<Rc<str>>, span: Span, value: &Value) -> Result<()> {
+    pub fn push_format_fragment(out: &mut Vec<Arc<str>>, span: Span, value: &Value) -> Result<()> {
         match value {
             Value::Bool(b) => out.push((if *b { "true" } else { "false" }).into()),
             Value::Int(i) => out.push(i.to_string().into()),
@@ -694,7 +694,7 @@ impl<'a> Evaluator<'a> {
     }
 
     /// Join fragments pushed by [`push_format_fragment`] into one string.
-    pub fn join_format_fragments(fragments: Vec<Rc<str>>) -> Value {
+    pub fn join_format_fragments(fragments: Vec<Arc<str>>) -> Value {
         let mut result = String::with_capacity(fragments.iter().map(|s| s.len()).sum());
 
         for s in fragments {
@@ -821,16 +821,16 @@ impl<'a> Evaluator<'a> {
                 for (k, v) in ys.iter() {
                     result.insert(k.clone(), v.clone());
                 }
-                Ok(Value::Dict(Rc::new(result)))
+                Ok(Value::Dict(Arc::new(result)))
             }
             (BinOp::Union, Value::Set(xs), Value::Set(ys)) => {
                 let result = xs.union(ys.as_ref()).cloned().collect();
-                Ok(Value::Set(Rc::new(result)))
+                Ok(Value::Set(Arc::new(result)))
             }
             (BinOp::Union, Value::Set(xs), Value::List(ys)) => {
                 let mut result = (*xs).clone();
                 result.extend(ys.iter().cloned());
-                Ok(Value::Set(Rc::new(result)))
+                Ok(Value::Set(Arc::new(result)))
             }
             (BinOp::Union, _, _) => {
                 // We could make a nicer error and include the values, but I plan

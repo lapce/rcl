@@ -8,7 +8,7 @@
 //! The Abstract Syntax Tree.
 
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub use crate::cst::{BinOp, UnOp};
 
@@ -20,7 +20,7 @@ use crate::types::{self, SourcedType};
 // Should they be slices into the source document? For now the easy thing is to
 // just make them strings, we can optimize later.
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Ident(pub Rc<str>);
+pub struct Ident(pub Arc<str>);
 
 // coverage:off -- Debug is needed for asserts but not covered when there are no errors.
 impl fmt::Debug for Ident {
@@ -133,7 +133,7 @@ pub enum Expr {
     BoolLit(bool),
 
     /// A string literal.
-    StringLit(Rc<str>),
+    StringLit(Arc<str>),
 
     /// An integer literal.
     /// TODO: This should be a bigint.
@@ -238,7 +238,7 @@ pub enum Expr {
         span: Span,
         body_span: Span,
         body: Box<Expr>,
-        type_: Rc<types::Function>,
+        type_: Arc<types::Function>,
     },
 }
 

@@ -8,7 +8,7 @@
 //! Representations of types.
 
 use std::cmp::Ordering;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast::{CallArg, Ident};
 use crate::error::{Error, IntoError, Result};
@@ -45,16 +45,16 @@ pub enum Type {
     String,
 
     /// A dict with the given key and value types.
-    Dict(Rc<Dict>),
+    Dict(Arc<Dict>),
 
     /// A list with the given element type.
-    List(Rc<SourcedType>),
+    List(Arc<SourcedType>),
 
     /// A set with the given element type.
-    Set(Rc<SourcedType>),
+    Set(Arc<SourcedType>),
 
     /// A function.
-    Function(Rc<Function>),
+    Function(Arc<Function>),
 }
 
 impl Type {
@@ -233,7 +233,7 @@ impl Function {
         }
     }
 
-    pub fn is_subtype_of(self: &Rc<Self>, other: &Rc<Function>) -> TypeDiff<Rc<Function>> {
+    pub fn is_subtype_of(self: &Arc<Self>, other: &Arc<Function>) -> TypeDiff<Arc<Function>> {
         // If there is an arity mismatch, report that as a normal diff.
         // Unfortunately at this point we don't have access to the type sources,
         // so this check only kicks in in places where we have a `Function` but
@@ -372,7 +372,7 @@ impl SourcedType {
             (Type::Dict(d1), Type::Dict(d2)) => {
                 // TODO: If the meets don't change the key and value type,
                 // we can recycle the original instead of making a new one.
-                let dm = Rc::new(Dict {
+                let dm = Arc::new(Dict {
                     key: d1.key.meet(&d2.key),
                     value: d1.value.meet(&d2.value),
                 });
@@ -380,12 +380,12 @@ impl SourcedType {
                 (Type::Dict(dm), Source::None)
             }
             (Type::List(l1), Type::List(l2)) => {
-                let type_ = Type::List(Rc::new(l1.meet(l2)));
+                let type_ = Type::List(Arc::new(l1.meet(l2)));
                 // TODO: If the types are the same on both sides, we can meet the sources.
                 (type_, Source::None)
             }
             (Type::Set(s1), Type::Set(s2)) => {
-                let type_ = Type::Set(Rc::new(s1.meet(s2)));
+                let type_ = Type::Set(Arc::new(s1.meet(s2)));
                 // TODO: If the types are the same on both sides, we can meet the sources.
                 (type_, Source::None)
             }
@@ -622,16 +622,16 @@ macro_rules! make_type {
     (Int) => { builtin(Type::Int) };
     (Bool) => { builtin(Type::Bool) };
     (String) => { builtin(Type::String) };
-    ([$elem:tt]) => { builtin(Type::List(Rc::new(make_type!($elem)))) };
-    ({$elem:tt}) => { builtin(Type::Set(Rc::new(make_type!($elem)))) };
+    ([$elem:tt]) => { builtin(Type::List(Arc::new(make_type!($elem)))) };
+    ({$elem:tt}) => { builtin(Type::Set(Arc::new(make_type!($elem)))) };
     ({$k:tt: $v:tt}) => {
-        builtin(Type::Dict(Rc::new(Dict {
+        builtin(Type::Dict(Arc::new(Dict {
             key: make_type!($k),
             value: make_type!($v),
         })))
     };
     ((fn ($( $arg_name:ident: $arg_type:tt ),*) -> $result:tt)) => {
-        builtin(Type::Function(Rc::new(
+        builtin(Type::Function(Arc::new(
             make_function!(($( $arg_name:$arg_type ),*) -> $result)
         )))
     };

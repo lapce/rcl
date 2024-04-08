@@ -8,7 +8,7 @@
 //! Implementation of the standard library.
 
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast::CallArg;
 use crate::error::{IntoError, Result};
@@ -100,7 +100,7 @@ fn builtin_std_range(_eval: &mut Evaluator, call: FunctionCall) -> Result<Value>
     }
 
     let values: Vec<_> = range.map(Value::Int).collect();
-    Ok(Value::List(Rc::new(values)))
+    Ok(Value::List(Arc::new(values)))
 }
 
 /// Initialize the standard library.
@@ -113,7 +113,7 @@ pub fn initialize() -> Value {
         Value::BuiltinFunction(&STD_READ_FILE_UTF8),
     );
 
-    Value::Dict(Rc::new(builtins))
+    Value::Dict(Arc::new(builtins))
 }
 
 builtin_method!("Dict.len", () -> Int, const DICT_LEN, builtin_dict_len);
@@ -200,7 +200,7 @@ builtin_method!(
 );
 fn builtin_dict_keys(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
     let result = call.receiver.expect_dict().keys().cloned().collect();
-    Ok(Value::Set(Rc::new(result)))
+    Ok(Value::Set(Arc::new(result)))
 }
 
 builtin_method!(
@@ -211,7 +211,7 @@ builtin_method!(
 );
 fn builtin_dict_values(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
     let result = call.receiver.expect_dict().values().cloned().collect();
-    Ok(Value::List(Rc::new(result)))
+    Ok(Value::List(Arc::new(result)))
 }
 
 builtin_method!(
@@ -224,7 +224,7 @@ fn builtin_dict_except(_eval: &mut Evaluator, call: MethodCall) -> Result<Value>
     let mut result = call.receiver.expect_dict().clone();
     let key = &call.call.args[0].value;
     result.remove(key);
-    Ok(Value::Dict(Rc::new(result)))
+    Ok(Value::Dict(Arc::new(result)))
 }
 
 builtin_method!(
@@ -237,7 +237,7 @@ fn builtin_set_except(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> 
     let mut result = call.receiver.expect_set().clone();
     let element = &call.call.args[0].value;
     result.remove(element);
-    Ok(Value::Set(Rc::new(result)))
+    Ok(Value::Set(Arc::new(result)))
 }
 
 fn builtin_group_by_impl<'a, I: IntoIterator<Item = &'a Value>>(
@@ -293,9 +293,9 @@ fn builtin_list_group_by(eval: &mut Evaluator, call: MethodCall) -> Result<Value
     let list = call.receiver.expect_list();
     let result = builtin_group_by_impl(eval, call, "List.group_by", list)?
         .into_iter()
-        .map(|(k, vs)| (k, Value::List(Rc::new(vs))))
+        .map(|(k, vs)| (k, Value::List(Arc::new(vs))))
         .collect();
-    Ok(Value::Dict(Rc::new(result)))
+    Ok(Value::Dict(Arc::new(result)))
 }
 
 builtin_method!(
@@ -309,9 +309,9 @@ fn builtin_set_group_by(eval: &mut Evaluator, call: MethodCall) -> Result<Value>
     let set = call.receiver.expect_set();
     let result = builtin_group_by_impl(eval, call, "Set.group_by", set)?
         .into_iter()
-        .map(|(k, vs)| (k, Value::Set(Rc::new(vs.into_iter().collect()))))
+        .map(|(k, vs)| (k, Value::Set(Arc::new(vs.into_iter().collect()))))
         .collect();
-    Ok(Value::Dict(Rc::new(result)))
+    Ok(Value::Dict(Arc::new(result)))
 }
 
 fn builtin_key_by_impl<'a, I: IntoIterator<Item = &'a Value>>(
@@ -345,7 +345,7 @@ fn builtin_key_by_impl<'a, I: IntoIterator<Item = &'a Value>>(
         result.insert(k, vs.pop().expect("Groups have at least one element."));
     }
 
-    Ok(Value::Dict(Rc::new(result)))
+    Ok(Value::Dict(Arc::new(result)))
 }
 
 builtin_method!(
@@ -393,7 +393,7 @@ fn builtin_string_split(_eval: &mut Evaluator, call: MethodCall) -> Result<Value
 
     let result: Vec<Value> = string.split(sep).map(Value::from).collect();
 
-    Ok(Value::List(Rc::new(result)))
+    Ok(Value::List(Arc::new(result)))
 }
 
 builtin_method!(
@@ -407,7 +407,7 @@ fn builtin_string_split_lines(_eval: &mut Evaluator, call: MethodCall) -> Result
 
     let result: Vec<Value> = string.lines().map(Value::from).collect();
 
-    Ok(Value::List(Rc::new(result)))
+    Ok(Value::List(Arc::new(result)))
 }
 
 builtin_method!(
@@ -501,7 +501,7 @@ fn builtin_string_chars(_eval: &mut Evaluator, call: MethodCall) -> Result<Value
         result.push(Value::from(&string[i..]));
     }
 
-    Ok(Value::List(Rc::new(result)))
+    Ok(Value::List(Arc::new(result)))
 }
 
 builtin_method!(
@@ -696,7 +696,7 @@ builtin_method!(
 fn builtin_list_reverse(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
     let list = call.receiver.expect_list();
     let reversed = list.iter().rev().cloned().collect();
-    Ok(Value::List(Rc::new(reversed)))
+    Ok(Value::List(Arc::new(reversed)))
 }
 
 builtin_method!(
@@ -712,5 +712,5 @@ fn builtin_list_enumerate(_eval: &mut Evaluator, call: MethodCall) -> Result<Val
         .zip(0..)
         .map(|(v, i)| (Value::Int(i), v.clone()))
         .collect();
-    Ok(Value::Dict(Rc::new(kv)))
+    Ok(Value::Dict(Arc::new(kv)))
 }

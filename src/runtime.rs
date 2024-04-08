@@ -9,7 +9,7 @@
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast::{CallArg, Expr};
 use crate::error::{IntoError, PathElement, Result};
@@ -112,10 +112,10 @@ pub struct Function {
     /// TODO: It might be nicer to capture only the variables that are needed,
     /// but then we need to inspect the body AST when the lambda is produced.
     pub env: Env,
-    pub body: Rc<Expr>,
+    pub body: Arc<Expr>,
 
     /// The type of this function, including its arguments.
-    pub type_: Rc<types::Function>,
+    pub type_: Arc<types::Function>,
 }
 
 impl PartialEq for Function {
@@ -156,21 +156,21 @@ pub enum Value {
     // TODO: Should be a bigint.
     Int(i64),
 
-    String(Rc<str>),
+    String(Arc<str>),
 
-    List(Rc<Vec<Value>>),
-
-    // TODO: Should preserve insertion order.
-    Set(Rc<BTreeSet<Value>>),
+    List(Arc<Vec<Value>>),
 
     // TODO: Should preserve insertion order.
-    Dict(Rc<BTreeMap<Value, Value>>),
+    Set(Arc<BTreeSet<Value>>),
 
-    Function(Rc<Function>),
+    // TODO: Should preserve insertion order.
+    Dict(Arc<BTreeMap<Value, Value>>),
+
+    Function(Arc<Function>),
 
     BuiltinFunction(&'static BuiltinFunction),
 
-    BuiltinMethod(Rc<MethodInstance>),
+    BuiltinMethod(Arc<MethodInstance>),
 }
 
 impl Value {

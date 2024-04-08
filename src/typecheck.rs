@@ -12,7 +12,7 @@
 //! but also for the type `List[String]`. Therefore we check whether a value
 //! _fits_ a particular type, and that same value may fit multiple types.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast::{BinOp, Expr, Ident, Seq, Stmt, Type as AType, UnOp, Yield};
 use crate::error::{IntoError, Result};
@@ -106,7 +106,7 @@ fn eval_type_expr(expr: &AType) -> Result<SourcedType> {
                 })
                 .collect::<Result<Vec<FunctionArg>>>()?;
             let result_type = eval_type_expr(result)?;
-            let fn_type = Rc::new(Function {
+            let fn_type = Arc::new(Function {
                 args: args_types,
                 result: result_type,
             });
@@ -139,7 +139,7 @@ fn eval_type_apply(name_span: Span, name: &str, args: &[SourcedType]) -> Result<
                     key: tk.clone(),
                     value: tv.clone(),
                 };
-                Ok(Type::Dict(Rc::new(dict)))
+                Ok(Type::Dict(Arc::new(dict)))
             }
             // TODO: We can point at the excess or missing arg for a
             // friendlier error, but better to do that in a general way
@@ -152,7 +152,7 @@ fn eval_type_apply(name_span: Span, name: &str, args: &[SourcedType]) -> Result<
                 .err(),
         },
         "List" => match args {
-            [te] => Ok(Type::List(Rc::new(te.clone()))),
+            [te] => Ok(Type::List(Arc::new(te.clone()))),
             // TODO: As above for dict, we can do a better job of the error.
             _ => name_span
                 .error(concat! {
@@ -162,7 +162,7 @@ fn eval_type_apply(name_span: Span, name: &str, args: &[SourcedType]) -> Result<
                 .err(),
         },
         "Set" => match args {
-            [te] => Ok(Type::Set(Rc::new(te.clone()))),
+            [te] => Ok(Type::Set(Arc::new(te.clone()))),
             // TODO: As above for dict, we can do a better job of the error.
             _ => name_span
                 .error(concat! {
@@ -530,7 +530,7 @@ impl<'a> TypeChecker<'a> {
         args: &[(Span, Ident)],
         body_span: Span,
         body: &mut Expr,
-    ) -> Result<Rc<Function>> {
+    ) -> Result<Arc<Function>> {
         let mut arg_types = Vec::with_capacity(args.len());
 
         let checkpoint = self.env.checkpoint();
@@ -579,7 +579,7 @@ impl<'a> TypeChecker<'a> {
         let result_type = self.check_expr(body_req, body_span, body)?;
         self.env.pop(checkpoint);
 
-        let fn_type_inner = Rc::new(Function {
+        let fn_type_inner = Arc::new(Function {
             args: arg_types,
             result: result_type,
         });
@@ -663,7 +663,7 @@ impl<'a> TypeChecker<'a> {
             (Type::Dict(..), Type::Dict(..)) => lhs_type.meet(&rhs_type),
             (Type::Set(..), Type::Set(..)) => lhs_type.meet(&rhs_type),
             (Type::Set(tl), Type::List(tr)) => SourcedType {
-                type_: Type::Set(Rc::new(tl.meet(tr.as_ref()))),
+                type_: Type::Set(Arc::new(tl.meet(tr.as_ref()))),
                 source: Source::None,
             },
             // TODO: Because of this case, we still have to handle the case at
@@ -982,22 +982,22 @@ impl SeqType {
     fn into_type(self, span: Span) -> SourcedType {
         let type_ = match self {
             // An empty literal `{}` is a dict, not a set, because it is a dict in json.
-            SeqType::SetOrDict => Type::Dict(Rc::new(Dict {
+            SeqType::SetOrDict => Type::Dict(Arc::new(Dict {
                 key: SourcedType::void(span),
                 value: SourcedType::void(span),
             })),
             SeqType::UntypedList(t) | SeqType::TypedList { elem_infer: t, .. } => {
-                Type::List(Rc::new(t))
+                Type::List(Arc::new(t))
             }
             SeqType::UntypedSet(.., t) | SeqType::TypedSet { elem_infer: t, .. } => {
-                Type::Set(Rc::new(t))
+                Type::Set(Arc::new(t))
             }
             SeqType::UntypedDict(.., k, v)
             | SeqType::TypedDict {
                 key_infer: k,
                 value_infer: v,
                 ..
-            } => Type::Dict(Rc::new(Dict { key: k, value: v })),
+            } => Type::Dict(Arc::new(Dict { key: k, value: v })),
         };
         SourcedType {
             type_,

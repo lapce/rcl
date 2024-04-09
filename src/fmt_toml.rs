@@ -23,7 +23,7 @@ pub fn format_toml(caller: Span, v: &Value) -> Result<Doc> {
     let mut formatter = Formatter::new(caller);
 
     match v {
-        Value::Dict(kv) => formatter.top_level(kv),
+        Value::Dict(kv, _) => formatter.top_level(kv),
         _ => formatter.error("To format as TOML, the top-level value must be a dict."),
     }
 }
@@ -93,7 +93,7 @@ impl Formatter {
     fn push_key<'a>(&mut self, key: &'a Value) -> Result<Doc<'a>> {
         self.path.push(PathElement::Key(key.clone()));
         match key {
-            Value::String(k_str) => Ok(self.key(k_str).with_markup(Markup::Field)),
+            Value::String(k_str, _) => Ok(self.key(k_str).with_markup(Markup::Field)),
             _ => self.error("To export as TOML, keys must be strings."),
         }
     }
@@ -205,11 +205,11 @@ impl Formatter {
             Value::Bool(true) => Doc::from("true").with_markup(Markup::Keyword),
             Value::Bool(false) => Doc::from("false").with_markup(Markup::Keyword),
             Value::Int(i) => Doc::from(i.to_string()).with_markup(Markup::Number),
-            Value::String(s) => self.string(s).with_markup(Markup::String),
+            Value::String(s, _) => self.string(s).with_markup(Markup::String),
             Value::List(vs) => self.array(vs.iter())?,
             // TOML has no set type, we format sets as arrays (lists).
             Value::Set(vs) => self.array(vs.iter())?,
-            Value::Dict(vs) => self.inline_table(vs.iter())?,
+            Value::Dict(vs, _) => self.inline_table(vs.iter())?,
             Value::Function(..) => self.error("Functions cannot be exported as TOML.")?,
             Value::BuiltinFunction(..) => self.error("Functions cannot be exported as TOML.")?,
             Value::BuiltinMethod { .. } => self.error("Methods cannot be exported as TOML.")?,
@@ -229,7 +229,7 @@ impl Formatter {
         for (i, x) in xs.enumerate() {
             self.path.push(PathElement::Index(i));
             let table_body = match x {
-                Value::Dict(table_inner) => self.table(table_inner.iter())?,
+                Value::Dict(table_inner, _) => self.table(table_inner.iter())?,
                 _ => unreachable!("We checked before that all elements are dicts."),
             };
             self.path.pop().expect("We pushed the index before.");
@@ -259,7 +259,7 @@ impl Formatter {
                 }
 
                 // Top-level dicts get formatted as tables.
-                Value::Dict(table_inner) => {
+                Value::Dict(table_inner, _) => {
                     let table_header = self.push_key(k)?;
                     let table_body = self.table(table_inner.iter())?;
                     self.path.pop().expect("We pushed the key before.");

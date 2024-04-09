@@ -64,11 +64,11 @@ pub fn dict<'a>(vs: impl Iterator<Item = (&'a Value, &'a Value)>) -> Doc<'a> {
         elements.push(Doc::Sep);
         match k {
             // Format as identifier if we can, or as string if we have to.
-            Value::String(k_str) if is_identifier(k_str) => {
+            Value::String(k_str, _) if is_identifier(k_str) => {
                 elements.push(Doc::from(k_str.as_ref()).with_markup(Markup::Field));
                 elements.push(" = ".into());
             }
-            Value::String(k_str) => {
+            Value::String(k_str, _) => {
                 elements.push(string(k_str).with_markup(Markup::Field));
                 elements.push(": ".into());
             }
@@ -104,13 +104,13 @@ fn value(v: &Value) -> Doc {
         Value::Bool(true) => Doc::from("true").with_markup(Markup::Keyword),
         Value::Bool(false) => Doc::from("false").with_markup(Markup::Keyword),
         Value::Int(i) => Doc::from(i.to_string()).with_markup(Markup::Number),
-        Value::String(s) => string(s).with_markup(Markup::String),
+        Value::String(s, _) => string(s).with_markup(Markup::String),
         Value::List(vs) => list("[", "]", vs.iter()),
         // TODO: An empty set should print as {}, that would be a non-idempotency,
         // because {} is the empty dict. We could add a function `std.empty_set`,
         // and format it as that?
         Value::Set(vs) => list("{", "}", vs.iter()),
-        Value::Dict(vs) => dict(vs.iter()),
+        Value::Dict(vs, _) => dict(vs.iter()),
         // TODO: Add a more proper printer for functions/builtins. For now this will do.
         Value::Function(..) => Doc::from("«function»").with_markup(Markup::Keyword),
         Value::BuiltinFunction(b) => Doc::from(b.name).with_markup(Markup::Builtin),

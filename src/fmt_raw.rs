@@ -45,7 +45,7 @@ impl Formatter {
         let mut elements = Vec::with_capacity(vs.size_hint().0 * 2);
         for (i, v) in vs.enumerate() {
             match v {
-                Value::String(s) => elements.push(Doc::lines(s)),
+                Value::String(s, _) => elements.push(Doc::lines(s)),
                 _not_str => {
                     return self
                         .error_not_string(v)
@@ -60,7 +60,7 @@ impl Formatter {
 
     fn value<'a>(&mut self, v: &'a Value) -> Result<Doc<'a>> {
         let result: Doc = match v {
-            Value::String(s) => Doc::lines(s),
+            Value::String(s, _) => Doc::lines(s),
             Value::List(vs) => self.list(vs.iter())?,
             Value::Set(vs) => self.list(vs.iter())?,
             _not_str => return self.error_not_string(v).err(),

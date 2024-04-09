@@ -87,7 +87,7 @@ impl Formatter {
             }
             self.path.push(PathElement::Key(k.clone()));
             match k {
-                Value::String(k_str) => {
+                Value::String(k_str, _) => {
                     elements.push(self.string(k_str).with_markup(Markup::Field))
                 }
                 _ => return self.error("To export as json, keys must be strings."),
@@ -112,10 +112,10 @@ impl Formatter {
             Value::Bool(true) => Doc::from("true").with_markup(Markup::Keyword),
             Value::Bool(false) => Doc::from("false").with_markup(Markup::Keyword),
             Value::Int(i) => Doc::from(i.to_string()).with_markup(Markup::Number),
-            Value::String(s) => self.string(s).with_markup(Markup::String),
+            Value::String(s, _) => self.string(s).with_markup(Markup::String),
             Value::List(vs) => self.list(vs.iter())?,
             Value::Set(vs) => self.list(vs.iter())?,
-            Value::Dict(vs) => self.dict(vs.iter())?,
+            Value::Dict(vs, _) => self.dict(vs.iter())?,
             Value::Function(..) => self.error("Functions cannot be exported as json.")?,
             Value::BuiltinFunction(..) => self.error("Functions cannot be exported as json.")?,
             Value::BuiltinMethod { .. } => self.error("Methods cannot be exported as json.")?,

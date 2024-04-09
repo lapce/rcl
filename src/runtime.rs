@@ -146,6 +146,11 @@ impl Ord for Function {
     }
 }
 
+pub struct PositionedValue {
+    pub value: Value,
+    pub span: Option<Span>,
+}
+
 /// A value.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Value {
@@ -156,7 +161,7 @@ pub enum Value {
     // TODO: Should be a bigint.
     Int(i64),
 
-    String(Arc<str>),
+    String(Arc<str>, Option<Span>),
 
     List(Arc<Vec<Value>>),
 
@@ -164,7 +169,7 @@ pub enum Value {
     Set(Arc<BTreeSet<Value>>),
 
     // TODO: Should preserve insertion order.
-    Dict(Arc<BTreeMap<Value, Value>>),
+    Dict(Arc<BTreeMap<Value, Value>>, Option<Span>),
 
     Function(Arc<Function>),
 
@@ -178,7 +183,7 @@ impl Value {
     #[inline]
     pub fn expect_dict(&self) -> &BTreeMap<Value, Value> {
         match self {
-            Value::Dict(inner) => inner,
+            Value::Dict(inner, _) => inner,
             other => panic!("Expected Dict but got {other:?}."),
         }
     }
@@ -203,9 +208,9 @@ impl Value {
 
     /// Extract the string if it is one, panic otherwise.
     #[inline]
-    pub fn expect_string(&self) -> &str {
+    pub fn expect_string(&self) -> (&str, &Option<Span>) {
         match self {
-            Value::String(inner) => inner.as_ref(),
+            Value::String(inner, span) => (inner.as_ref(), span),
             other => panic!("Expected String but got {other:?}."),
         }
     }
@@ -241,7 +246,7 @@ impl Value {
                 }
                 Ok(())
             }
-            (Type::Dict(dict), Value::Dict(kvs)) => {
+            (Type::Dict(dict), Value::Dict(kvs, _)) => {
                 for (k, v) in kvs.iter() {
                     k.is_instance_of(at, &dict.key)
                         .map_err(|err| err.with_path_element(PathElement::Key(k.clone())))?;
@@ -289,12 +294,42 @@ impl Value {
             }
         }
     }
+
+    pub fn span(&self) -> &Option<Span> {
+        match self {
+            Value::Null => &None,
+            Value::Bool(_) => &None,
+            Value::Int(_) => &None,
+            Value::String(_, span) => span,
+            Value::List(_) => &None,
+            Value::Set(_) => &None,
+            Value::Dict(_, span) => span,
+            Value::Function(_) => &None,
+            Value::BuiltinFunction(_) => &None,
+            Value::BuiltinMethod(_) => &None,
+        }
+    }
+
+    pub fn no_span(self) -> Self {
+        match self {
+            Value::Null => Value::Null,
+            Value::Bool(v) => Value::Bool(v),
+            Value::Int(v) => Value::Int(v),
+            Value::String(v, _) => Value::String(v, None),
+            Value::List(v) => Value::List(v),
+            Value::Set(v) => Value::Set(v),
+            Value::Dict(v, _) => Value::Dict(v, None),
+            Value::Function(v) => Value::Function(v),
+            Value::BuiltinFunction(v) => Value::BuiltinFunction(v),
+            Value::BuiltinMethod(v) => Value::BuiltinMethod(v),
+        }
+    }
 }
 
 impl<'a> From<&'a str> for Value {
     #[inline]
     fn from(value: &'a str) -> Self {
-        Value::String(value.into())
+        Value::String(value.into(), None)
     }
 }
 

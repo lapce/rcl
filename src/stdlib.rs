@@ -27,7 +27,7 @@ builtin_function!(
 fn builtin_std_read_file_utf8(eval: &mut Evaluator, call: FunctionCall) -> Result<Value> {
     let arg_span = call.args[0].span;
     let path = match &call.args[0].value {
-        Value::String(s) => s.as_ref(),
+        Value::String(s, _) => s.as_ref(),
         _not_string => {
             // TODO: Add proper typechecking and a proper type error.
             return arg_span
@@ -113,7 +113,7 @@ pub fn initialize() -> Value {
         Value::BuiltinFunction(&STD_READ_FILE_UTF8),
     );
 
-    Value::Dict(Arc::new(builtins))
+    Value::Dict(Arc::new(builtins), None)
 }
 
 builtin_method!("Dict.len", () -> Int, const DICT_LEN, builtin_dict_len);
@@ -136,7 +136,7 @@ fn builtin_set_len(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
 
 builtin_method!("String.len", () -> Int, const STRING_LEN, builtin_string_len);
 fn builtin_string_len(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
     Ok(Value::Int(string.chars().count() as _))
 }
 
@@ -224,7 +224,7 @@ fn builtin_dict_except(_eval: &mut Evaluator, call: MethodCall) -> Result<Value>
     let mut result = call.receiver.expect_dict().clone();
     let key = &call.call.args[0].value;
     result.remove(key);
-    Ok(Value::Dict(Arc::new(result)))
+    Ok(Value::Dict(Arc::new(result), None))
 }
 
 builtin_method!(
@@ -295,7 +295,7 @@ fn builtin_list_group_by(eval: &mut Evaluator, call: MethodCall) -> Result<Value
         .into_iter()
         .map(|(k, vs)| (k, Value::List(Arc::new(vs))))
         .collect();
-    Ok(Value::Dict(Arc::new(result)))
+    Ok(Value::Dict(Arc::new(result), None))
 }
 
 builtin_method!(
@@ -311,7 +311,7 @@ fn builtin_set_group_by(eval: &mut Evaluator, call: MethodCall) -> Result<Value>
         .into_iter()
         .map(|(k, vs)| (k, Value::Set(Arc::new(vs.into_iter().collect()))))
         .collect();
-    Ok(Value::Dict(Arc::new(result)))
+    Ok(Value::Dict(Arc::new(result), None))
 }
 
 fn builtin_key_by_impl<'a, I: IntoIterator<Item = &'a Value>>(
@@ -345,7 +345,7 @@ fn builtin_key_by_impl<'a, I: IntoIterator<Item = &'a Value>>(
         result.insert(k, vs.pop().expect("Groups have at least one element."));
     }
 
-    Ok(Value::Dict(Arc::new(result)))
+    Ok(Value::Dict(Arc::new(result), None))
 }
 
 builtin_method!(
@@ -379,11 +379,11 @@ builtin_method!(
     builtin_string_split
 );
 fn builtin_string_split(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
 
     let sep_arg = &call.call.args[0];
     let sep = match &sep_arg.value {
-        Value::String(sep) => sep.as_ref(),
+        Value::String(sep, _) => sep.as_ref(),
         _ => return sep_arg.span.error("Separator must be a string.").err(),
     };
 
@@ -403,7 +403,7 @@ builtin_method!(
     builtin_string_split_lines
 );
 fn builtin_string_split_lines(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
 
     let result: Vec<Value> = string.lines().map(Value::from).collect();
 
@@ -419,7 +419,7 @@ builtin_method!(
 fn builtin_string_parse_int(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
     use std::str::FromStr;
 
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
 
     match i64::from_str(string) {
         Ok(i) => Ok(Value::Int(i)),
@@ -438,10 +438,10 @@ builtin_method!(
     builtin_string_starts_with
 );
 fn builtin_string_starts_with(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
     let prefix_arg = &call.call.args[0];
     let prefix = match &prefix_arg.value {
-        Value::String(s) => s.as_ref(),
+        Value::String(s, _) => s.as_ref(),
         _ => return prefix_arg.span.error("Prefix must be a string.").err(),
     };
     Ok(Value::Bool(string.starts_with(prefix)))
@@ -454,10 +454,10 @@ builtin_method!(
     builtin_string_ends_with
 );
 fn builtin_string_ends_with(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
     let suffix_arg = &call.call.args[0];
     let suffix = match &suffix_arg.value {
-        Value::String(s) => s.as_ref(),
+        Value::String(s, _) => s.as_ref(),
         _ => return suffix_arg.span.error("Suffix must be a string.").err(),
     };
     Ok(Value::Bool(string.ends_with(suffix)))
@@ -470,10 +470,10 @@ builtin_method!(
     builtin_string_contains
 );
 fn builtin_string_contains(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
     let needle_arg = &call.call.args[0];
     let needle = match &needle_arg.value {
-        Value::String(s) => s.as_ref(),
+        Value::String(s, _) => s.as_ref(),
         _ => return needle_arg.span.error("Needle must be a string.").err(),
     };
     Ok(Value::Bool(string.contains(needle)))
@@ -486,7 +486,7 @@ builtin_method!(
     builtin_string_chars
 );
 fn builtin_string_chars(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
 
     // Copy each of the code points (chars) into its own string, return that
     // as a list of characters.
@@ -511,15 +511,15 @@ builtin_method!(
     builtin_string_replace
 );
 fn builtin_string_replace(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
     let needle_arg = &call.call.args[0];
     let needle = match &needle_arg.value {
-        Value::String(s) => s.as_ref(),
+        Value::String(s, _) => s.as_ref(),
         _ => return needle_arg.span.error("Needle must be a string.").err(),
     };
     let replacement_arg = &call.call.args[1];
-    let replacement = match &replacement_arg.value {
-        Value::String(s) => s.as_ref(),
+    let (replacement, span) = match &replacement_arg.value {
+        Value::String(s, span) => (s.as_ref(), span),
         _ => {
             return replacement_arg
                 .span
@@ -527,7 +527,10 @@ fn builtin_string_replace(_eval: &mut Evaluator, call: MethodCall) -> Result<Val
                 .err()
         }
     };
-    Ok(Value::String(string.replace(needle, replacement).into()))
+    Ok(Value::String(
+        string.replace(needle, replacement).into(),
+        *span,
+    ))
 }
 
 builtin_method!(
@@ -537,14 +540,14 @@ builtin_method!(
     builtin_string_remove_prefix
 );
 fn builtin_string_remove_prefix(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
     let prefix_arg = &call.call.args[0];
-    let prefix = match &prefix_arg.value {
-        Value::String(s) => s.as_ref(),
+    let (prefix, span) = match &prefix_arg.value {
+        Value::String(s, span) => (s.as_ref(), span),
         _ => return prefix_arg.span.error("Prefix must be a string.").err(),
     };
     match string.strip_prefix(prefix) {
-        Some(s) => Ok(Value::String(s.into())),
+        Some(s) => Ok(Value::String(s.into(), *span)),
         None => prefix_arg
             .span
             .error("Cannot remove this prefix.")
@@ -565,14 +568,14 @@ builtin_method!(
     builtin_string_remove_suffix
 );
 fn builtin_string_remove_suffix(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
+    let (string, span) = call.receiver.expect_string();
     let suffix_arg = &call.call.args[0];
-    let suffix = match &suffix_arg.value {
-        Value::String(s) => s.as_ref(),
+    let (suffix, span) = match &suffix_arg.value {
+        Value::String(s, span) => (s.as_ref(), span),
         _ => return suffix_arg.span.error("Suffix must be a string.").err(),
     };
     match string.strip_suffix(suffix) {
-        Some(s) => Ok(Value::String(s.into())),
+        Some(s) => Ok(Value::String(s.into(), *span)),
         None => suffix_arg
             .span
             .error("Cannot remove this suffix.")
@@ -593,8 +596,8 @@ builtin_method!(
     builtin_string_to_lowercase
 );
 fn builtin_string_to_lowercase(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
-    Ok(Value::String(string.to_lowercase().into()))
+    let (string, span) = call.receiver.expect_string();
+    Ok(Value::String(string.to_lowercase().into(), *span))
 }
 
 builtin_method!(
@@ -604,8 +607,8 @@ builtin_method!(
     builtin_string_to_uppercase
 );
 fn builtin_string_to_uppercase(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let string = call.receiver.expect_string();
-    Ok(Value::String(string.to_uppercase().into()))
+    let (string, span) = call.receiver.expect_string();
+    Ok(Value::String(string.to_uppercase().into(), *span))
 }
 
 builtin_method!(
@@ -712,5 +715,5 @@ fn builtin_list_enumerate(_eval: &mut Evaluator, call: MethodCall) -> Result<Val
         .zip(0..)
         .map(|(v, i)| (Value::Int(i), v.clone()))
         .collect();
-    Ok(Value::Dict(Arc::new(kv)))
+    Ok(Value::Dict(Arc::new(kv), None))
 }

@@ -222,7 +222,7 @@ mod test {
         let (_span, expr) = crate::parser::parse(doc, input, &tokens)?;
         let ast = crate::abstraction::abstract_expr(input, &expr)?;
         match ast {
-            StringLit(s) => Ok(s.to_string()),
+            StringLit(s, _) => Ok(s.to_string()),
             bad => panic!("Expected only strings, got {bad:?}."),
         }
     }

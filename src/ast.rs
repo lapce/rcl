@@ -133,7 +133,7 @@ pub enum Expr {
     BoolLit(bool),
 
     /// A string literal.
-    StringLit(Arc<str>),
+    StringLit(Arc<str>, Option<Span>),
 
     /// An integer literal.
     /// TODO: This should be a bigint.

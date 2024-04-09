@@ -271,7 +271,7 @@ impl<'a> Evaluator<'a> {
                 // requirement is artificial, we can relax it later if that turns
                 // out to be useful.
                 let path = match path_expr.as_ref() {
-                    Expr::StringLit(path) => path,
+                    Expr::StringLit(path, _) => path,
                     Expr::Format(..) => {
                         return path_span
                             .error("Import path must be a string literal without holes.")
@@ -335,11 +335,11 @@ impl<'a> Evaluator<'a> {
                         env,
                         seq,
                         &mut |_| unreachable!("Typechecker ensures assoc elements."),
-                        &mut |k, v| _ = out.insert(k, v),
+                        &mut |k, v| _ = out.insert(k.no_span(), v),
                     )?;
                 }
                 self.dec_eval_depth();
-                Ok(Value::Dict(Arc::new(out)))
+                Ok(Value::Dict(Arc::new(out), Some(*open)))
             }
 
             Expr::NullLit => Ok(Value::Null),
@@ -348,7 +348,7 @@ impl<'a> Evaluator<'a> {
 
             Expr::IntegerLit(i) => Ok(Value::Int(*i)),
 
-            Expr::StringLit(s) => Ok(Value::String(s.clone())),
+            Expr::StringLit(s, span) => Ok(Value::String(s.clone(), *span)),
 
             Expr::Format(fragments) => self.eval_format(env, fragments),
 
@@ -388,30 +388,30 @@ impl<'a> Evaluator<'a> {
                 self.inc_eval_depth(*inner_span)?;
                 let inner = self.eval_expr(env, inner_expr)?;
                 self.dec_eval_depth();
-                let field_name_value = Value::String(field_name.0.clone());
+                let field_name_value = Value::String(field_name.0.clone(), None);
 
                 let builtin = match (&inner, field_name.as_ref()) {
-                    (Value::String(_), "chars") => Some(&stdlib::STRING_CHARS),
-                    (Value::String(_), "contains") => Some(&stdlib::STRING_CONTAINS),
-                    (Value::String(_), "ends_with") => Some(&stdlib::STRING_ENDS_WITH),
-                    (Value::String(_), "len") => Some(&stdlib::STRING_LEN),
-                    (Value::String(_), "parse_int") => Some(&stdlib::STRING_PARSE_INT),
-                    (Value::String(_), "remove_prefix") => Some(&stdlib::STRING_REMOVE_PREFIX),
-                    (Value::String(_), "remove_suffix") => Some(&stdlib::STRING_REMOVE_SUFFIX),
-                    (Value::String(_), "replace") => Some(&stdlib::STRING_REPLACE),
-                    (Value::String(_), "split") => Some(&stdlib::STRING_SPLIT),
-                    (Value::String(_), "split_lines") => Some(&stdlib::STRING_SPLIT_LINES),
-                    (Value::String(_), "starts_with") => Some(&stdlib::STRING_STARTS_WITH),
-                    (Value::String(_), "to_lowercase") => Some(&stdlib::STRING_TO_LOWERCASE),
-                    (Value::String(_), "to_uppercase") => Some(&stdlib::STRING_TO_UPPERCASE),
+                    (Value::String(_, _), "chars") => Some(&stdlib::STRING_CHARS),
+                    (Value::String(_, _), "contains") => Some(&stdlib::STRING_CONTAINS),
+                    (Value::String(_, _), "ends_with") => Some(&stdlib::STRING_ENDS_WITH),
+                    (Value::String(_, _), "len") => Some(&stdlib::STRING_LEN),
+                    (Value::String(_, _), "parse_int") => Some(&stdlib::STRING_PARSE_INT),
+                    (Value::String(_, _), "remove_prefix") => Some(&stdlib::STRING_REMOVE_PREFIX),
+                    (Value::String(_, _), "remove_suffix") => Some(&stdlib::STRING_REMOVE_SUFFIX),
+                    (Value::String(_, _), "replace") => Some(&stdlib::STRING_REPLACE),
+                    (Value::String(_, _), "split") => Some(&stdlib::STRING_SPLIT),
+                    (Value::String(_, _), "split_lines") => Some(&stdlib::STRING_SPLIT_LINES),
+                    (Value::String(_, _), "starts_with") => Some(&stdlib::STRING_STARTS_WITH),
+                    (Value::String(_, _), "to_lowercase") => Some(&stdlib::STRING_TO_LOWERCASE),
+                    (Value::String(_, _), "to_uppercase") => Some(&stdlib::STRING_TO_UPPERCASE),
 
-                    (Value::Dict(_), "contains") => Some(&stdlib::DICT_CONTAINS),
-                    (Value::Dict(_), "except") => Some(&stdlib::DICT_EXCEPT),
-                    (Value::Dict(_), "get") => Some(&stdlib::DICT_GET),
-                    (Value::Dict(_), "keys") => Some(&stdlib::DICT_KEYS),
-                    (Value::Dict(_), "len") => Some(&stdlib::DICT_LEN),
-                    (Value::Dict(_), "values") => Some(&stdlib::DICT_VALUES),
-                    (Value::Dict(fields), _field_name) => {
+                    (Value::Dict(_, _), "contains") => Some(&stdlib::DICT_CONTAINS),
+                    (Value::Dict(_, _), "except") => Some(&stdlib::DICT_EXCEPT),
+                    (Value::Dict(_, _), "get") => Some(&stdlib::DICT_GET),
+                    (Value::Dict(_, _), "keys") => Some(&stdlib::DICT_KEYS),
+                    (Value::Dict(_, _), "len") => Some(&stdlib::DICT_LEN),
+                    (Value::Dict(_, _), "values") => Some(&stdlib::DICT_VALUES),
+                    (Value::Dict(fields, _), _field_name) => {
                         // If it wasn't a builtin, look for a key in the dict.
                         return match fields.get(&field_name_value) {
                             Some(v) => Ok(v.clone()),
@@ -678,7 +678,7 @@ impl<'a> Evaluator<'a> {
             Value::Bool(b) => out.push((if *b { "true" } else { "false" }).into()),
             Value::Int(i) => out.push(i.to_string().into()),
             Value::Null => out.push("null".into()),
-            Value::String(s) => out.push(s.clone()),
+            Value::String(s, _) => out.push(s.clone()),
             not_formattable => {
                 return span
                     .error(concat! {
@@ -701,7 +701,7 @@ impl<'a> Evaluator<'a> {
             result.push_str(s.as_ref());
         }
 
-        Value::String(result.into())
+        Value::String(result.into(), None)
     }
 
     /// Evaluate a format string.
@@ -726,7 +726,7 @@ impl<'a> Evaluator<'a> {
     ) -> Result<Value> {
         match collection {
             Value::List(xs) => self.eval_index_list(&xs, index, index_span),
-            Value::Dict(dict) => self.eval_index_dict(&dict, collection_span, index, index_span),
+            Value::Dict(dict, _) => self.eval_index_dict(&dict, collection_span, index, index_span),
             // TODO: Implement indexing into strings.
             Value::String(..) => open_span
                 .error("Indexing into a string is not yet supported.")
@@ -816,12 +816,18 @@ impl<'a> Evaluator<'a> {
 
     fn eval_binop(&mut self, op: BinOp, op_span: Span, lhs: Value, rhs: Value) -> Result<Value> {
         match (op, lhs, rhs) {
-            (BinOp::Union, Value::Dict(xs), Value::Dict(ys)) => {
+            (BinOp::Union, Value::Dict(xs, l), Value::Dict(ys, r)) => {
                 let mut result = (*xs).clone();
                 for (k, v) in ys.iter() {
                     result.insert(k.clone(), v.clone());
                 }
-                Ok(Value::Dict(Arc::new(result)))
+                let span = match (l, r) {
+                    (Some(l), Some(r)) => Some(l.union(r)),
+                    (Some(span), None) => Some(span),
+                    (None, Some(span)) => Some(span),
+                    (None, None) => None,
+                };
+                Ok(Value::Dict(Arc::new(result), span))
             }
             (BinOp::Union, Value::Set(xs), Value::Set(ys)) => {
                 let result = xs.union(ys.as_ref()).cloned().collect();
@@ -939,7 +945,7 @@ impl<'a> Evaluator<'a> {
                         let body: Doc = match &message {
                             // If the message is a string, then we include it directly,
                             // not pretty-printed as a value.
-                            Value::String(msg) => Doc::lines(msg),
+                            Value::String(msg, _) => Doc::lines(msg),
                             // Otherwise, we pretty-print it as an RCL value.
                             _ => format_rcl(&message),
                         };
@@ -1031,7 +1037,7 @@ impl<'a> Evaluator<'a> {
                         );
                         Err(err.into())
                     }
-                    ([k_name, v_name], Value::Dict(xs)) => {
+                    ([k_name, v_name], Value::Dict(xs, _)) => {
                         for (k, v) in xs.iter() {
                             let ck = env.checkpoint();
                             env.push(k_name.clone(), k.clone());

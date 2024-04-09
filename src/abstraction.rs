@@ -73,7 +73,7 @@ impl<'a> Abstractor<'a> {
                     if !current.is_empty() {
                         fragments.push(FormatFragment {
                             span: current_span.expect("Must have string part before a hole."),
-                            body: Expr::StringLit(current.into()),
+                            body: Expr::StringLit(current.into(), current_span),
                         });
                         current = String::new();
                         current_span = None;
@@ -89,14 +89,14 @@ impl<'a> Abstractor<'a> {
         if fragments.is_empty() {
             // If we have no fragments, then we had no holes, and we can return
             // a regular string literal.
-            Ok(Expr::StringLit(current.into()))
+            Ok(Expr::StringLit(current.into(), current_span))
         } else {
             // If we have fragments, then we had holes, and we have to return
             // a format string.
             if !current.is_empty() {
                 fragments.push(FormatFragment {
                     span: current_span.expect("If we have a fragment, we should have a span."),
-                    body: Expr::StringLit(current.into()),
+                    body: Expr::StringLit(current.into(), current_span),
                 });
             }
             Ok(AExpr::Format(fragments))
@@ -370,7 +370,7 @@ impl<'a> Abstractor<'a> {
                 // We convert the `key = value` as if it had been written
                 // `"key": value` so we can treat them uniformly from here on.
                 let key_str = field.resolve(self.input);
-                let key_expr = AExpr::StringLit(key_str.into());
+                let key_expr = AExpr::StringLit(key_str.into(), Some(*field));
                 ASeq::Yield(Yield::Assoc {
                     op_span: *op_span,
                     key_span: *field,

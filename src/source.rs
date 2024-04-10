@@ -16,6 +16,9 @@ pub struct Doc<'a> {
 
     /// The contents of the file.
     pub data: &'a str,
+
+    /// the line offset of the file
+    pub line_offset: usize,
 }
 
 /// A list of input documents.
@@ -106,6 +109,28 @@ impl Span {
     /// Return the slice from the input that the span spans.
     pub fn resolve<'a>(&self, input: impl Source<'a>) -> &'a str {
         input.resolve(*self)
+    }
+
+    pub fn start_line(&self, input: &str) -> usize {
+        // Locate the line that contains the error.
+        let mut line = 1;
+        let mut line_start = 0;
+        let start = self.start();
+        for (&c, i) in input.as_bytes().iter().zip(0..) {
+            if i == start {
+                break;
+            }
+            if c == b'\n' {
+                line += 1;
+                line_start = i + 1;
+            }
+        }
+        for (&c, _) in input.as_bytes()[line_start..].iter().zip(line_start..) {
+            if c == b'\n' {
+                break;
+            }
+        }
+        line
     }
 
     /// Delete n bytes from the start of the span.

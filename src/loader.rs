@@ -35,6 +35,8 @@ pub struct Document {
     name: String,
     /// The document contents.
     data: String,
+    /// The line offset of the content
+    line_offset: usize,
 }
 
 impl Document {
@@ -42,6 +44,7 @@ impl Document {
         Doc {
             name: &self.name,
             data: &self.data,
+            line_offset: self.line_offset,
         }
     }
 }
@@ -313,6 +316,7 @@ impl Filesystem for SandboxFilesystem {
         let doc = Document {
             name: path.name,
             data: buf,
+            line_offset: 0,
         };
 
         Ok(doc)
@@ -453,6 +457,7 @@ impl Loader {
         let doc = Document {
             name: "stdin".to_string(),
             data: buf,
+            line_offset: 0,
         };
         Ok(self.push(doc))
     }
@@ -486,10 +491,11 @@ impl Loader {
     }
 
     /// Load a string into a new document.
-    pub fn load_string(&mut self, data: String) -> DocId {
+    pub fn load_string(&mut self, data: String, name: Option<String>, line_offset: usize) -> DocId {
         let doc = Document {
-            name: "input".to_string(),
+            name: name.unwrap_or_else(|| "input".to_string()),
             data,
+            line_offset,
         };
         self.push(doc)
     }
@@ -565,6 +571,6 @@ impl Loader {
         };
 
         self.write_depfile_impl(&resolved_target, &resolved_depfile)
-            .map_err(|err| Error::new(format!("Failed to write depfile: {}.", err)).into())
+            .map_err(|err| Error::new(format!("Failed to write depfile: {}.", err)))
     }
 }

@@ -236,7 +236,7 @@ impl<'a> Evaluator<'a> {
             // Reverse the notes: we print the error itself first, and then we
             // want to print what the offending file was imported from, etc.
             err.notes.reverse();
-            return Err(err.into());
+            return Err(err);
         }
 
         // Evaluate the import in its own clean environment, it should not be
@@ -335,11 +335,11 @@ impl<'a> Evaluator<'a> {
                         env,
                         seq,
                         &mut |_| unreachable!("Typechecker ensures assoc elements."),
-                        &mut |k, v| _ = out.insert(k.no_span(), v),
+                        &mut |k, v| _ = out.insert(k, v),
                     )?;
                 }
                 self.dec_eval_depth();
-                Ok(Value::Dict(Arc::new(out), Some(*open)))
+                Ok(Value::Dict(out, Some(*open)))
             }
 
             Expr::NullLit => Ok(Value::Null),
@@ -616,7 +616,6 @@ impl<'a> Evaluator<'a> {
                         call_open,
                         concat! { "In call to method '" Doc::highlight(method.name) "'." },
                     )
-                    .into()
                 })
             }
             Value::BuiltinFunction(f) => {
@@ -629,17 +628,14 @@ impl<'a> Evaluator<'a> {
                         call_open,
                         concat! { "In call to function '" Doc::highlight(f.name) "'." },
                     )
-                    .into()
                 })
             }
             Value::Function(fun) => {
                 fun.type_.check_arity(None, call.args, call.call_close)?;
                 // TODO: Also perform typechecks of the arguments.
 
-                self.eval_function_call(fun, call).map_err(|err| {
-                    err.with_call_frame(call_open, "In call to function.")
-                        .into()
-                })
+                self.eval_function_call(fun, call)
+                    .map_err(|err| err.with_call_frame(call_open, "In call to function."))
             }
             _ => callee_span
                 .error("This is not a function, it cannot be called.")
@@ -817,7 +813,7 @@ impl<'a> Evaluator<'a> {
     fn eval_binop(&mut self, op: BinOp, op_span: Span, lhs: Value, rhs: Value) -> Result<Value> {
         match (op, lhs, rhs) {
             (BinOp::Union, Value::Dict(xs, l), Value::Dict(ys, r)) => {
-                let mut result = (*xs).clone();
+                let mut result = xs;
                 for (k, v) in ys.iter() {
                     result.insert(k.clone(), v.clone());
                 }
@@ -827,7 +823,7 @@ impl<'a> Evaluator<'a> {
                     (None, Some(span)) => Some(span),
                     (None, None) => None,
                 };
-                Ok(Value::Dict(Arc::new(result), span))
+                Ok(Value::Dict(result, span))
             }
             (BinOp::Union, Value::Set(xs), Value::Set(ys)) => {
                 let result = xs.union(ys.as_ref()).cloned().collect();
@@ -1020,7 +1016,7 @@ impl<'a> Evaluator<'a> {
                             *collection_span,
                             "This is a list, it yields one element per iteration.",
                         );
-                        Err(err.into())
+                        Err(err)
                     }
                     ([name], Value::Set(xs)) => {
                         for x in xs.iter() {
@@ -1035,7 +1031,7 @@ impl<'a> Evaluator<'a> {
                             *collection_span,
                             "This is a set, it yields one element per iteration.",
                         );
-                        Err(err.into())
+                        Err(err)
                     }
                     ([k_name, v_name], Value::Dict(xs, _)) => {
                         for (k, v) in xs.iter() {
@@ -1054,9 +1050,9 @@ impl<'a> Evaluator<'a> {
                                 *collection_span,
                                 "This is a dict, it yields a key and value per iteration.",
                             );
-                        Err(err.into())
+                        Err(err)
                     }
-                    _ => Err(collection_span.error("This is not iterable.").into()),
+                    _ => Err(collection_span.error("This is not iterable.")),
                 }
             }
             Seq::If {

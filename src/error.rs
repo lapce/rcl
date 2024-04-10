@@ -13,7 +13,7 @@ use crate::pprint::{concat, Doc};
 use crate::runtime::Value;
 use crate::source::{Inputs, Span};
 
-pub type Result<T> = std::result::Result<T, Box<Error>>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Element of a path through a value.
 // TODO: Record the value itself as well, so we can *show* the thing that's wrong.
@@ -45,6 +45,9 @@ pub enum PathElement {
 /// (e.g. json output) to enable tooling.
 #[derive(Debug)]
 pub struct Error {
+    /// Whether the error is only a warning
+    pub warn: bool,
+
     /// The main message of the error.
     ///
     ///  * Shorter is better.
@@ -88,6 +91,7 @@ impl Error {
         Doc<'static>: From<M>,
     {
         Error {
+            warn: false,
             message: message.into(),
             body: None,
             origin: None,
@@ -98,9 +102,14 @@ impl Error {
         }
     }
 
+    pub fn warning(mut self) -> Self {
+        self.warn = true;
+        self
+    }
+
     /// Replace the origin of the error with the given span.
-    pub fn with_origin(mut self, origin: Span) -> Error {
-        self.origin = Some(origin);
+    pub fn with_origin(mut self, origin: Option<Span>) -> Error {
+        self.origin = origin;
         self
     }
 
@@ -194,7 +203,7 @@ impl Error {
 
     /// Wrap the error in a `Result::Err`.
     pub fn err<T>(self) -> Result<T> {
-        Err(Box::new(self))
+        Err(self)
     }
 
     fn report_path(&self) -> Doc<'static> {
@@ -225,15 +234,29 @@ impl Error {
     pub fn report<'a>(self, inputs: &'a Inputs) -> Doc<'a> {
         let mut result = Vec::new();
 
+        if self.warn {
+            result.push(Doc::from("Warning:").with_markup(Markup::Warning));
+        } else {
+            result.push(Doc::from("Error:").with_markup(Markup::Error));
+        }
+        result.push(" ".into());
+        result.push(self.message.to_owned());
+        result.push(Doc::HardBreak);
+
         if let Some(span) = self.origin {
-            result.push(highlight_span(inputs, span, Markup::Error))
+            result.push("--> ".into());
+            result.push(highlight_span(
+                inputs,
+                span,
+                if self.warn {
+                    Markup::Warning
+                } else {
+                    Markup::Error
+                },
+            ))
         }
 
         result.push(self.report_path());
-
-        result.push(Doc::from("Error:").with_markup(Markup::Error));
-        result.push(" ".into());
-        result.push(self.message);
 
         if let Some(body) = self.body {
             result.push(" ".into());
@@ -241,20 +264,18 @@ impl Error {
         }
 
         for (note_span, note_message) in self.notes {
-            result.push(Doc::HardBreak);
-            result.push(Doc::HardBreak);
-            result.push(highlight_span(inputs, note_span, Markup::Warning));
             result.push(Doc::from("Note:").with_markup(Markup::Warning));
             result.push(" ".into());
             result.push(note_message);
+            result.push(Doc::HardBreak);
+            result.push(highlight_span(inputs, note_span, Markup::Warning));
         }
 
         if let Some(help_message) = self.help {
-            result.push(Doc::HardBreak);
-            result.push(Doc::HardBreak);
             result.push(Doc::from("Help:").with_markup(Markup::Warning));
             result.push(" ".into());
             result.push(help_message);
+            result.push(Doc::HardBreak);
         }
 
         // We print the call stack last, after the help and notes, because the
@@ -268,12 +289,10 @@ impl Error {
         }
         for (call_span, call_frame_message) in call_stack {
             result.push(Doc::HardBreak);
-            result.push(Doc::HardBreak);
             result.push(highlight_span(inputs, call_span, Markup::Error));
             result.push(call_frame_message);
         }
         if truncate {
-            result.push(Doc::HardBreak);
             result.push(Doc::HardBreak);
             result.push(Doc::from("Note:").with_markup(Markup::Warning));
             result.push(
@@ -282,6 +301,8 @@ impl Error {
                     .into(),
             );
         }
+
+        result.push(Doc::HardBreak);
 
         Doc::Concat(result)
     }
@@ -312,6 +333,7 @@ pub fn highlight_span<'a>(inputs: &'a Inputs, span: Span, markup: Markup) -> Doc
 
     let doc = &inputs[span.doc().0 as usize];
     let input = doc.data;
+    let line_offset = doc.line_offset;
 
     // Locate the line that contains the error.
     let mut line = 1;
@@ -382,6 +404,7 @@ pub fn highlight_span<'a>(inputs: &'a Inputs, span: Span, markup: Markup) -> Doc
     let indent_width = indent_content.width() + trunc_prefix.width();
     let mark_width = cmp::max(1, error_content.width());
 
+    let line = line + line_offset;
     let line_num_str = line.to_string();
     let line_num_pad: String = line_num_str.chars().map(|_| ' ').collect();
     let mark_indent: String = " ".repeat(indent_width);

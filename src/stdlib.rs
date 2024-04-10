@@ -39,7 +39,7 @@ fn builtin_std_read_file_utf8(eval: &mut Evaluator, call: FunctionCall) -> Resul
     let doc = eval
         .loader
         .load_path(path, from)
-        .map_err(|err| err.with_origin(arg_span))?;
+        .map_err(|err| err.with_origin(Some(arg_span)))?;
     Ok(eval.loader.get_doc(doc).data.into())
 }
 
@@ -113,7 +113,7 @@ pub fn initialize() -> Value {
         Value::BuiltinFunction(&STD_READ_FILE_UTF8),
     );
 
-    Value::Dict(Arc::new(builtins), None)
+    Value::Dict(builtins, None)
 }
 
 builtin_method!("Dict.len", () -> Int, const DICT_LEN, builtin_dict_len);
@@ -136,7 +136,7 @@ fn builtin_set_len(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
 
 builtin_method!("String.len", () -> Int, const STRING_LEN, builtin_string_len);
 fn builtin_string_len(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
     Ok(Value::Int(string.chars().count() as _))
 }
 
@@ -224,7 +224,7 @@ fn builtin_dict_except(_eval: &mut Evaluator, call: MethodCall) -> Result<Value>
     let mut result = call.receiver.expect_dict().clone();
     let key = &call.call.args[0].value;
     result.remove(key);
-    Ok(Value::Dict(Arc::new(result), None))
+    Ok(Value::Dict(result, None))
 }
 
 builtin_method!(
@@ -295,7 +295,7 @@ fn builtin_list_group_by(eval: &mut Evaluator, call: MethodCall) -> Result<Value
         .into_iter()
         .map(|(k, vs)| (k, Value::List(Arc::new(vs))))
         .collect();
-    Ok(Value::Dict(Arc::new(result), None))
+    Ok(Value::Dict(result, None))
 }
 
 builtin_method!(
@@ -311,7 +311,7 @@ fn builtin_set_group_by(eval: &mut Evaluator, call: MethodCall) -> Result<Value>
         .into_iter()
         .map(|(k, vs)| (k, Value::Set(Arc::new(vs.into_iter().collect()))))
         .collect();
-    Ok(Value::Dict(Arc::new(result), None))
+    Ok(Value::Dict(result, None))
 }
 
 fn builtin_key_by_impl<'a, I: IntoIterator<Item = &'a Value>>(
@@ -345,7 +345,7 @@ fn builtin_key_by_impl<'a, I: IntoIterator<Item = &'a Value>>(
         result.insert(k, vs.pop().expect("Groups have at least one element."));
     }
 
-    Ok(Value::Dict(Arc::new(result), None))
+    Ok(Value::Dict(result, None))
 }
 
 builtin_method!(
@@ -379,7 +379,7 @@ builtin_method!(
     builtin_string_split
 );
 fn builtin_string_split(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
 
     let sep_arg = &call.call.args[0];
     let sep = match &sep_arg.value {
@@ -403,7 +403,7 @@ builtin_method!(
     builtin_string_split_lines
 );
 fn builtin_string_split_lines(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
 
     let result: Vec<Value> = string.lines().map(Value::from).collect();
 
@@ -419,7 +419,7 @@ builtin_method!(
 fn builtin_string_parse_int(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
     use std::str::FromStr;
 
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
 
     match i64::from_str(string) {
         Ok(i) => Ok(Value::Int(i)),
@@ -438,7 +438,7 @@ builtin_method!(
     builtin_string_starts_with
 );
 fn builtin_string_starts_with(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
     let prefix_arg = &call.call.args[0];
     let prefix = match &prefix_arg.value {
         Value::String(s, _) => s.as_ref(),
@@ -454,7 +454,7 @@ builtin_method!(
     builtin_string_ends_with
 );
 fn builtin_string_ends_with(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
     let suffix_arg = &call.call.args[0];
     let suffix = match &suffix_arg.value {
         Value::String(s, _) => s.as_ref(),
@@ -470,7 +470,7 @@ builtin_method!(
     builtin_string_contains
 );
 fn builtin_string_contains(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
     let needle_arg = &call.call.args[0];
     let needle = match &needle_arg.value {
         Value::String(s, _) => s.as_ref(),
@@ -486,7 +486,7 @@ builtin_method!(
     builtin_string_chars
 );
 fn builtin_string_chars(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
 
     // Copy each of the code points (chars) into its own string, return that
     // as a list of characters.
@@ -511,7 +511,7 @@ builtin_method!(
     builtin_string_replace
 );
 fn builtin_string_replace(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
     let needle_arg = &call.call.args[0];
     let needle = match &needle_arg.value {
         Value::String(s, _) => s.as_ref(),
@@ -540,7 +540,7 @@ builtin_method!(
     builtin_string_remove_prefix
 );
 fn builtin_string_remove_prefix(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
     let prefix_arg = &call.call.args[0];
     let (prefix, span) = match &prefix_arg.value {
         Value::String(s, span) => (s.as_ref(), span),
@@ -568,7 +568,7 @@ builtin_method!(
     builtin_string_remove_suffix
 );
 fn builtin_string_remove_suffix(_eval: &mut Evaluator, call: MethodCall) -> Result<Value> {
-    let (string, span) = call.receiver.expect_string();
+    let (string, _) = call.receiver.expect_string();
     let suffix_arg = &call.call.args[0];
     let (suffix, span) = match &suffix_arg.value {
         Value::String(s, span) => (s.as_ref(), span),
@@ -715,5 +715,5 @@ fn builtin_list_enumerate(_eval: &mut Evaluator, call: MethodCall) -> Result<Val
         .zip(0..)
         .map(|(v, i)| (Value::Int(i), v.clone()))
         .collect();
-    Ok(Value::Dict(Arc::new(kv), None))
+    Ok(Value::Dict(kv, None))
 }

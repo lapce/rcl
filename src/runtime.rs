@@ -152,7 +152,7 @@ pub struct PositionedValue {
 }
 
 /// A value.
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug)]
 pub enum Value {
     Null,
 
@@ -169,13 +169,109 @@ pub enum Value {
     Set(Arc<BTreeSet<Value>>),
 
     // TODO: Should preserve insertion order.
-    Dict(Arc<BTreeMap<Value, Value>>, Option<Span>),
+    Dict(BTreeMap<Value, Value>, Option<Span>),
 
     Function(Arc<Function>),
 
     BuiltinFunction(&'static BuiltinFunction),
 
     BuiltinMethod(Arc<MethodInstance>),
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Null, Value::Null) => true,
+            (Value::Bool(l), Value::Bool(r)) => l == r,
+            (Value::Int(l), Value::Int(r)) => l == r,
+            (Value::String(l, _), Value::String(r, _)) => l == r,
+            (Value::List(l), Value::List(r)) => l == r,
+            (Value::Set(l), Value::Set(r)) => l == r,
+            (Value::Dict(l, _), Value::Dict(r, _)) => l == r,
+            (Value::Function(l), Value::Function(r)) => l == r,
+            (Value::BuiltinFunction(l), Value::BuiltinFunction(r)) => l == r,
+            (Value::BuiltinMethod(l), Value::BuiltinMethod(r)) => l == r,
+            (_, _) => false,
+        }
+    }
+}
+
+impl Eq for Value {}
+
+impl Ord for Value {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Value::Null, Value::Null) => Ordering::Equal,
+            (Value::Bool(l), Value::Bool(r)) => l.cmp(r),
+            (Value::Int(l), Value::Int(r)) => l.cmp(r),
+            (Value::String(l, _), Value::String(r, _)) => l.cmp(r),
+            (Value::List(l), Value::List(r)) => l.cmp(r),
+            (Value::Set(l), Value::Set(r)) => l.cmp(r),
+            (Value::Dict(l, _), Value::Dict(r, _)) => l.cmp(r),
+            (Value::Function(l), Value::Function(r)) => l.cmp(r),
+            (Value::BuiltinFunction(l), Value::BuiltinFunction(r)) => l.cmp(r),
+            (Value::BuiltinMethod(l), Value::BuiltinMethod(r)) => l.cmp(r),
+            (Value::Null, _) => Ordering::Less,
+            (Value::Bool(_), Value::Null) => Ordering::Greater,
+            (Value::Bool(_), _) => Ordering::Less,
+            (Value::Int(_), Value::Null | Value::Bool(_)) => Ordering::Greater,
+            (Value::Int(_), _) => Ordering::Less,
+            (Value::String(_, _), Value::Null | Value::Bool(_) | Value::Int(_)) => {
+                Ordering::Greater
+            }
+            (Value::String(_, _), _) => Ordering::Less,
+            (
+                Value::List(_),
+                Value::Null | Value::Bool(_) | Value::Int(_) | Value::String(_, _),
+            ) => Ordering::Greater,
+            (Value::List(_), _) => Ordering::Less,
+            (
+                Value::Set(_),
+                Value::Null | Value::Bool(_) | Value::Int(_) | Value::String(_, _) | Value::List(_),
+            ) => Ordering::Greater,
+            (Value::Set(_), _) => Ordering::Less,
+            (
+                Value::Dict(_, _),
+                Value::Null
+                | Value::Bool(_)
+                | Value::Int(_)
+                | Value::String(_, _)
+                | Value::List(_)
+                | Value::Set(_),
+            ) => Ordering::Greater,
+            (Value::Dict(_, _), _) => Ordering::Less,
+            (
+                Value::Function(_),
+                Value::Null
+                | Value::Bool(_)
+                | Value::Int(_)
+                | Value::String(_, _)
+                | Value::List(_)
+                | Value::Set(_)
+                | Value::Dict(_, _),
+            ) => Ordering::Greater,
+            (Value::Function(_), _) => Ordering::Less,
+            (
+                Value::BuiltinFunction(_),
+                Value::Null
+                | Value::Bool(_)
+                | Value::Int(_)
+                | Value::String(_, _)
+                | Value::List(_)
+                | Value::Set(_)
+                | Value::Dict(_, _)
+                | Value::Function(_),
+            ) => Ordering::Greater,
+            (Value::BuiltinFunction(_), _) => Ordering::Less,
+            (Value::BuiltinMethod(_), _) => Ordering::Greater,
+        }
+    }
+}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Value {
@@ -307,21 +403,6 @@ impl Value {
             Value::Function(_) => &None,
             Value::BuiltinFunction(_) => &None,
             Value::BuiltinMethod(_) => &None,
-        }
-    }
-
-    pub fn no_span(self) -> Self {
-        match self {
-            Value::Null => Value::Null,
-            Value::Bool(v) => Value::Bool(v),
-            Value::Int(v) => Value::Int(v),
-            Value::String(v, _) => Value::String(v, None),
-            Value::List(v) => Value::List(v),
-            Value::Set(v) => Value::Set(v),
-            Value::Dict(v, _) => Value::Dict(v, None),
-            Value::Function(v) => Value::Function(v),
-            Value::BuiltinFunction(v) => Value::BuiltinFunction(v),
-            Value::BuiltinMethod(v) => Value::BuiltinMethod(v),
         }
     }
 }

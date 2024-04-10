@@ -193,7 +193,7 @@ impl<'a> Abstractor<'a> {
                     Ok(i) => AExpr::IntegerLit(i),
                     Err(..) => {
                         let err = span.error("Overflow in integer literal.");
-                        return Err(err.into());
+                        return Err(err);
                     }
                 }
             }
@@ -205,7 +205,7 @@ impl<'a> Abstractor<'a> {
                     Ok(i) => AExpr::IntegerLit(i),
                     Err(..) => {
                         let err = span.error("Overflow in integer literal.");
-                        return Err(err.into());
+                        return Err(err);
                     }
                 }
             }
@@ -217,7 +217,7 @@ impl<'a> Abstractor<'a> {
                     Ok(i) => AExpr::IntegerLit(i),
                     Err(..) => {
                         let err = span.error("Overflow in integer literal.");
-                        return Err(err.into());
+                        return Err(err);
                     }
                 }
             }
